@@ -162,4 +162,5 @@ CMakeFiles/MyAddon.dir/MyAddon/MyAddon.cpp.o
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h
  /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h
  /workspaces/PluginDiscoveryDemo/include/PluginAPI.hpp
+ /workspaces/PluginDiscoveryDemo/MyAddon/MyAddon.hpp
 

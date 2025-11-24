@@ -1,7 +1,7 @@
 CMakeFiles/MyAddon.dir/MyAddon/MyAddon.cpp.o: \
  /workspaces/PluginDiscoveryDemo/MyAddon/MyAddon.cpp \
  /usr/include/stdc-predef.h \
- /workspaces/PluginDiscoveryDemo/include/PluginAPI.hpp \
+ /workspaces/PluginDiscoveryDemo/MyAddon/../include/PluginAPI.hpp \
  /usr/include/c++/13/string /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \

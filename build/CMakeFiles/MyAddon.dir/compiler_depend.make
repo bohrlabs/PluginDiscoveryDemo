@@ -160,7 +160,8 @@ CMakeFiles/MyAddon.dir/MyAddon/MyAddon.cpp.o: /workspaces/PluginDiscoveryDemo/My
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stdarg.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stddef.h \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h \
-  /workspaces/PluginDiscoveryDemo/include/PluginAPI.hpp
+  /workspaces/PluginDiscoveryDemo/include/PluginAPI.hpp \
+  /workspaces/PluginDiscoveryDemo/MyAddon/MyAddon.hpp
 
 
 /usr/lib/gcc/x86_64-linux-gnu/13/include/stdint.h:
@@ -462,6 +463,8 @@ CMakeFiles/MyAddon.dir/MyAddon/MyAddon.cpp.o: /workspaces/PluginDiscoveryDemo/My
 /usr/include/x86_64-linux-gnu/bits/select.h:
 
 /usr/include/x86_64-linux-gnu/bits/pthreadtypes.h:
+
+/workspaces/PluginDiscoveryDemo/MyAddon/MyAddon.hpp:
 
 /workspaces/PluginDiscoveryDemo/MyAddon/MyAddon.cpp:
 
