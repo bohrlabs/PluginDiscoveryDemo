@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -shared -Wl,-soname,libMyAddon.so -o libMyAddon.so CMakeFiles/MyAddon.dir/MyAddon/MyAddon.cpp.o 

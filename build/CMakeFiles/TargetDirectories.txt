@@ -1,4 +1,0 @@
-/workspaces/PluginDiscoveryDemo/build/CMakeFiles/MyAddon.dir
-/workspaces/PluginDiscoveryDemo/build/CMakeFiles/HostApp.dir
-/workspaces/PluginDiscoveryDemo/build/CMakeFiles/edit_cache.dir
-/workspaces/PluginDiscoveryDemo/build/CMakeFiles/rebuild_cache.dir
