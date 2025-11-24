@@ -15,7 +15,14 @@ target_include_directories(MyAddon2 PRIVATE include)
 set_target_properties(MyAddon2 PROPERTIES OUTPUT_NAME "MyAddon2")
 
 # Build host app
-add_executable(HostApp HostApp/HostApp.cpp)
+add_executable(HostApp HostApp/HostApp.cpp
+HostApp/SharedLibrary.hpp
+HostApp/AddOnManager.hpp
+HostApp/AddOnManager.cpp
+HostApp/PortManager.hpp
+HostApp/PortManager.cpp
+include/PluginAPI.hpp
+)
 target_include_directories(HostApp PRIVATE include)
 
 # Host should NOT link to plugin (it's loaded dynamically)
