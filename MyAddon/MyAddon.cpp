@@ -1,40 +1,42 @@
 #include "MyAddon.hpp"
 #include <iostream>
 
-MyAddon::MyAddon() = default;
-
 std::vector<PluginAPI::PortDescriptor> MyAddon::getPortDescriptors() const {
-    // Implicit conversion from AddOnPort -> PortDescriptor.
-    return { InPort, OutPort, InPort2 };
+    return {OutPort};
 }
 
-void MyAddon::initialize() {
-    std::cout<<"[MyAddon] initialize()\n";
-    // Example: attach runtime data/handles if needed:
-    // InPort.Data = ...;
-    // OutPort.Data = ...;
+void MyAddon::initialize(PluginAPI::IHostServices *svc) {
+    OutPort.Bind(svc);
 }
 
 void MyAddon::run() {
-    std::cout<<"[MyAddon] run()\n";
-    // Example usage:
-    // if (InPort.Data) { ... }
+    static Packet p;
+    p.value = tick++;
+    p.speed = 3.14f * p.value;
+
+    // direct write into SHM
+    OutPort.data() = p;
+
+    std::cout << "[MyAddon] Produced Packet: value=" << p.value
+              << " speed=" << p.speed << "\n";
 }
 
 void MyAddon::shutdown() {
-    std::cout<<"[MyAddon] shutdown()\n";
+    std::cout << "[MyAddon] shutdown\n";
 }
 
 #ifdef _WIN32
-#define PLUGIN_EXPORT extern "C" __declspec(dllexport)
-#else
-#define PLUGIN_EXPORT extern "C" __attribute__((visibility("default")))
-#endif
-
-PLUGIN_EXPORT PluginAPI::IPlugin* CreatePlugin() {
+extern "C" __declspec(dllexport) PluginAPI::IPlugin *CreatePlugin() {
     return new MyAddon();
 }
-
-PLUGIN_EXPORT void DestroyPlugin(PluginAPI::IPlugin* p) {
+extern "C" __declspec(dllexport) void DestroyPlugin(PluginAPI::IPlugin *p) {
     delete p;
 }
+#else
+extern "C" __attribute__((visibility("default"))) PluginAPI::IPlugin *CreatePlugin() {
+    return new MyAddon();
+}
+extern "C" __attribute__((visibility("default"))) void DestroyPlugin(PluginAPI::IPlugin *p) {
+    delete p;
+}
+#endif

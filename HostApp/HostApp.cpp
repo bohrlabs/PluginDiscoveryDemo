@@ -12,7 +12,6 @@ int main() {
     PortManager  portMgr;
 
     mgr.addSearchDir(fs::current_path() / "bin");
-    
 
     if (!mgr.scanAndLoad()) {
         std::cerr << "[HostApp] No addons loaded.\n";
@@ -22,15 +21,12 @@ int main() {
     // Register all ports in PortManager
     mgr.discoverPortsForAll(portMgr);
 
-    portMgr.PrintPorts();
+    portMgr.Connect("MyAddon", "OutPacket",
+        "MyAddon2", "InPacket");
 
-    // Example: connect MyAddon2 output to MyAddon input
-    portMgr.Connect("MyAddon2", "OutputSharedMemory",
-                    "MyAddon",  "InputSharedMemory");
-
-    portMgr.PrintConnections();
-
-    mgr.runAll();
+    
+        mgr.runAll(portMgr);
+    
     mgr.unloadAll();
 
     std::cout << "[HostApp] Done\n";

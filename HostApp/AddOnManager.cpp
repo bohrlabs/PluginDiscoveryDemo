@@ -8,7 +8,7 @@ AddOnManager::~AddOnManager() {
     unloadAll();
 }
 
-void AddOnManager::addSearchDir(const fs::path& dir) {
+void AddOnManager::addSearchDir(const fs::path &dir) {
     searchDirs_.push_back(dir);
 }
 
@@ -16,8 +16,9 @@ void AddOnManager::clearSearchDirs() {
     searchDirs_.clear();
 }
 
-bool AddOnManager::isAddonFile(const fs::path& p) {
-    if (!p.has_extension()) return false;
+bool AddOnManager::isAddonFile(const fs::path &p) {
+    if (!p.has_extension())
+        return false;
     auto ext = p.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
@@ -28,14 +29,17 @@ bool AddOnManager::isAddonFile(const fs::path& p) {
 #endif
 }
 
-std::vector<fs::path> AddOnManager::collectCandidates(const fs::path& dir) {
+std::vector<fs::path> AddOnManager::collectCandidates(const fs::path &dir) {
     std::vector<fs::path> out;
-    if (!fs::exists(dir) || !fs::is_directory(dir)) return out;
+    if (!fs::exists(dir) || !fs::is_directory(dir))
+        return out;
 
-    for (const auto& e : fs::directory_iterator(dir)) {
-        if (!e.is_regular_file()) continue;
-        const auto& p = e.path();
-        if (isAddonFile(p)) out.push_back(p);
+    for (const auto &e : fs::directory_iterator(dir)) {
+        if (!e.is_regular_file())
+            continue;
+        const auto &p = e.path();
+        if (isAddonFile(p))
+            out.push_back(p);
     }
     return out;
 }
@@ -44,7 +48,7 @@ bool AddOnManager::scanAndLoad() {
     unloadAll();
 
     std::vector<fs::path> candidates;
-    for (const auto& dir : searchDirs_) {
+    for (const auto &dir : searchDirs_) {
         auto c = collectCandidates(dir);
         candidates.insert(candidates.end(), c.begin(), c.end());
     }
@@ -58,8 +62,9 @@ bool AddOnManager::scanAndLoad() {
     }
 
     bool anyLoaded = false;
-    for (const auto& p : candidates) {
-        if (loadOne(p)) anyLoaded = true;
+    for (const auto &p : candidates) {
+        if (loadOne(p))
+            anyLoaded = true;
     }
 
     if (!anyLoaded) {
@@ -68,7 +73,7 @@ bool AddOnManager::scanAndLoad() {
     return anyLoaded;
 }
 
-bool AddOnManager::loadOne(const fs::path& libPath) {
+bool AddOnManager::loadOne(const fs::path &libPath) {
     AddOn a;
     a.path = libPath;
 
@@ -97,32 +102,40 @@ bool AddOnManager::loadOne(const fs::path& libPath) {
     return true;
 }
 
-void AddOnManager::discoverPortsForAll(IHostPortServices& svc) {
-    for (auto& a:addons_) {
+void AddOnManager::discoverPortsForAll(IHostPortServices &svc) {
+    for (auto &a : addons_) {
         const auto addonName = a.path.stem().string(); // "MyAddon2"
-        std::cout<<"[AddOnManager] Ports for "<<addonName<<"\n";
+        std::cout << "[AddOnManager] Ports for " << addonName << "\n";
 
         svc.BeginAddon(addonName);
 
         auto ports = a.plugin->getPortDescriptors();
-        for (const auto& pd:ports) {
+        for (const auto &pd : ports) {
             svc.CreatePort(pd);
         }
     }
 }
 
+void AddOnManager::runAll(PluginAPI::IHostServices &services) {
+    for (auto &a : addons_) {
+        std::cout << "[AddOnManager] Initialize " << a.path.filename().string() << "\n";
+        a.plugin->initialize(&services);
+    }
+    std::cout << "[AddOnManager] Run all " << "\n";
+    for (int i = 0; i < 10; i++) {
+        for (auto &a : addons_) {
+            a.plugin->run();
+        }
+    }
 
-void AddOnManager::runAll() {
-    for (auto& a : addons_) {
-        std::cout << "[AddOnManager] Running " << a.path.filename().string() << "\n";
-        a.plugin->initialize();
-        a.plugin->run();
+    for (auto &a : addons_) {
+        std::cout << "[AddOnManager] Shutdown " << a.path.filename().string() << "\n";
         a.plugin->shutdown();
     }
 }
 
 void AddOnManager::unloadAll() {
-    for (auto& a : addons_) {
+    for (auto &a : addons_) {
         if (a.plugin && a.destroyFn) {
             a.destroyFn(a.plugin);
             a.plugin = nullptr;

@@ -2,17 +2,17 @@
 
 using namespace PluginAPI;
 
-void PortManager::BeginAddon(const std::string& addonName) {
+void PortManager::BeginAddon(const std::string &addonName) {
     currentAddon_ = addonName;
 }
 
-void PortManager::CreatePort(const PortDescriptor& desc) {
+void PortManager::CreatePort(const PortDescriptor &desc) {
     if (currentAddon_.empty()) {
         std::cerr << "[PortManager] CreatePort called without BeginAddon().\n";
         return;
     }
 
-    PortKey key{ currentAddon_, desc.Name };
+    PortKey key{currentAddon_, desc.Name};
 
     if (ports_.contains(key)) {
         std::cerr << "[PortManager] Duplicate port ignored: "
@@ -33,9 +33,9 @@ void PortManager::CreatePort(const PortDescriptor& desc) {
               << "\n";
 }
 
-bool PortManager::Validate(const PortDescriptor& prov,
-                           const PortDescriptor& recv,
-                           std::string& why) {
+bool PortManager::Validate(const PortDescriptor &prov,
+    const PortDescriptor                        &recv,
+    std::string                                 &why) {
     if (prov.Direction != PortDirection::Output) {
         why = "provider is not Output";
         return false;
@@ -54,7 +54,7 @@ bool PortManager::Validate(const PortDescriptor& prov,
     return true;
 }
 
-bool PortManager::Connect(const PortKey& provider, const PortKey& receiver) {
+bool PortManager::Connect(const PortKey &provider, const PortKey &receiver) {
     auto pIt = ports_.find(provider);
     auto rIt = ports_.find(receiver);
 
@@ -79,7 +79,7 @@ bool PortManager::Connect(const PortKey& provider, const PortKey& receiver) {
         return false;
     }
 
-    connections_.push_back({ provider, receiver });
+    connections_.push_back({provider, receiver});
 
     std::cout << "[PortManager] Connected "
               << provider.addon << "::" << provider.port
@@ -89,16 +89,16 @@ bool PortManager::Connect(const PortKey& provider, const PortKey& receiver) {
     return true;
 }
 
-bool PortManager::Connect(const std::string& providerAddon, const std::string& providerPort,
-                          const std::string& receiverAddon, const std::string& receiverPort) {
+bool PortManager::Connect(const std::string &providerAddon, const std::string &providerPort,
+    const std::string &receiverAddon, const std::string &receiverPort) {
     return Connect(PortKey{providerAddon, providerPort},
-                   PortKey{receiverAddon, receiverPort});
+        PortKey{receiverAddon, receiverPort});
 }
 
 void PortManager::PrintPorts() const {
     std::cout << "\n[PortManager] Ports:\n";
-    for (const auto& [k, info] : ports_) {
-        const auto& d = info.desc;
+    for (const auto &[k, info] : ports_) {
+        const auto &d = info.desc;
         std::cout << "  " << k.addon << "::" << k.port
                   << " | " << to_string(d.Direction)
                   << " | " << to_string(d.Type)
@@ -109,10 +109,53 @@ void PortManager::PrintPorts() const {
 
 void PortManager::PrintConnections() const {
     std::cout << "\n[PortManager] Connections:\n";
-    for (const auto& c : connections_) {
+    for (const auto &c : connections_) {
         std::cout << "  " << c.provider.addon << "::" << c.provider.port
                   << " -> "
                   << c.receiver.addon << "::" << c.receiver.port
                   << "\n";
     }
+}
+PluginAPI::PortHandle PortManager::OpenPort(const char *name) {
+    // name is unique per-addon; we resolve using currentAddon_
+    PortKey key{currentAddon_, name};
+    auto    it = ports_.find(key);
+    if (it == ports_.end())
+        return {};
+
+    // impl points to PortInfo
+    return PluginAPI::PortHandle{(void *)&it->second};
+}
+
+// Demo transport: each port gets a tiny byte buffer in PortInfo::transport.
+static std::vector<std::uint8_t> &BufferFor(PortManager::PortInfo &pi) {
+    if (!pi.transport)
+        pi.transport = new std::vector<std::uint8_t>(1024);
+    return *static_cast<std::vector<std::uint8_t> *>(pi.transport);
+}
+
+bool PortManager::Read(PluginAPI::PortHandle h, void *dst, size_t bytes, size_t &outBytes) {
+    if (!h.impl) {
+        outBytes = 0;
+        return false;
+    }
+    auto &pi  = *static_cast<PortInfo *>(h.impl);
+    auto &buf = BufferFor(pi);
+
+    outBytes = min(bytes, buf.size());
+    std::memcpy(dst, buf.data(), outBytes);
+    return true;
+}
+
+bool PortManager::Write(PluginAPI::PortHandle h, const void *src, size_t bytes, size_t &outBytes) {
+    if (!h.impl) {
+        outBytes = 0;
+        return false;
+    }
+    auto &pi  = *static_cast<PortInfo *>(h.impl);
+    auto &buf = BufferFor(pi);
+
+    outBytes = min(bytes, buf.size());
+    std::memcpy(buf.data(), src, outBytes);
+    return true;
 }
