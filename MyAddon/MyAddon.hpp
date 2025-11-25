@@ -8,8 +8,8 @@ class MyAddon: public PluginAPI::IPlugin {
             Packet,
             "OutPacket",
             PluginAPI::PortDirection::Output,
-            PluginAPI::PortType::SharedMemory,
-            PluginAPI::DataAccessPolicy::Direct>;
+            PluginAPI::PortType::InternalMemory,
+            PluginAPI::DataAccessPolicy::Buffered>;
 
         std::vector<PluginAPI::PortDescriptor> getPortDescriptors() const override;
         void                                   initialize(PluginAPI::IHostServices *svc) override;

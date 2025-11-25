@@ -2,7 +2,7 @@
 #include "../include/PluginAPI.hpp"
 #include "../include/Packet.hpp"
 
-class MyAddon2: public PluginAPI::IPlugin {
+class MyAddon3: public PluginAPI::IPlugin {
     public:
         using InPortT = PluginAPI::AddOnPort<
             Packet,

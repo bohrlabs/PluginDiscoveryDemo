@@ -24,6 +24,9 @@ int main() {
     portMgr.Connect("MyAddon", "OutPacket",
         "MyAddon2", "InPacket");
 
+    portMgr.Connect("MyAddon", "OutPacket",
+        "MyAddon3", "InPacket");
+
     portMgr.PrintConnections();
     mgr.runAll(portMgr);
 

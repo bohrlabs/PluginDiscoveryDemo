@@ -10,10 +10,9 @@
 class PortManager: public IHostPortServices, public PluginAPI::IHostServices {
     public:
         struct PortKey {
-                std::string addon; // e.g. "MyAddon2"
-                std::string port;  // e.g. "OutputSharedMemory"
-
-                bool operator<(const PortKey &o) const {
+                std::string addon;
+                std::string port;
+                bool        operator<(const PortKey &o) const {
                     if (addon != o.addon)
                         return addon < o.addon;
                     return port < o.port;
@@ -23,13 +22,16 @@ class PortManager: public IHostPortServices, public PluginAPI::IHostServices {
         struct PortInfo {
                 PortKey                   key;
                 PluginAPI::PortDescriptor desc;
-                // later: transport handle / shared memory ptr / queue id, etc.
-                void *transport = nullptr;
+                void                     *transport = nullptr; // used for Direct; null for Buffered
         };
 
         struct Connection {
-                PortKey provider; // Output
-                PortKey receiver; // Input
+                PortKey provider;
+                PortKey receiver;
+
+                // For buffered ports:
+                std::vector<std::uint8_t> buffer;
+                bool                      hasData = false;
         };
 
         // Called by AddOnManager before pushing ports of one addon
@@ -53,16 +55,15 @@ class PortManager: public IHostPortServices, public PluginAPI::IHostServices {
         }
 
         void PrintPorts() const;
-        void PrintConnections() const; 
+        void PrintConnections() const;
 
         PluginAPI::PortHandle OpenPort(const char *name) override;
         bool                  Read(PluginAPI::PortHandle h, void *dst, size_t bytes, size_t &outBytes) override;
         bool                  Write(PluginAPI::PortHandle h, const void *src, size_t bytes, size_t &outBytes) override;
 
-
         // Project functionalities
-        bool                  SaveToFile(const std::string &filename) const;
-        bool                  LoadFromFile(const std::string &filename);
+        bool SaveToFile(const std::string &filename) const;
+        bool LoadFromFile(const std::string &filename);
 
     private:
         static bool Validate(const PluginAPI::PortDescriptor &prov,

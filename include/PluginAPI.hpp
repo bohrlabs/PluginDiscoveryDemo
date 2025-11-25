@@ -16,9 +16,10 @@ namespace PluginAPI {
     };
 
     enum struct PortType : std::uint8_t {
-        SharedMemory = 0,
-        Socket       = 1,
-        Function     = 2
+        SharedMemory   = 0,
+        InternalMemory = 1,
+        Socket         = 2,
+        Function       = 3
     };
 
     enum struct DataAccessPolicy : std::uint8_t {
@@ -36,6 +37,7 @@ namespace PluginAPI {
     inline const char *to_string(PortType t) {
         switch (t) {
         case PortType::SharedMemory: return "SharedMemory";
+        case PortType::InternalMemory: return "InternalMemory";
         case PortType::Socket: return "Socket";
         case PortType::Function: return "Function";
         default: return "Unknown";

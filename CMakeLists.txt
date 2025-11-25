@@ -14,6 +14,11 @@ add_library(MyAddon2 SHARED MyAddon2/MyAddon2.cpp)
 target_include_directories(MyAddon2 PRIVATE include)
 set_target_properties(MyAddon2 PROPERTIES OUTPUT_NAME "MyAddon2")
 
+# Build plugin/shared lib
+add_library(MyAddon3 SHARED MyAddon3/MyAddon3.cpp)
+target_include_directories(MyAddon3 PRIVATE include)
+set_target_properties(MyAddon3 PROPERTIES OUTPUT_NAME "MyAddon3")
+
 # Build host app
 add_executable(HostApp HostApp/HostApp.cpp
 HostApp/SharedLibrary.hpp
@@ -56,6 +61,18 @@ set_target_properties(MyAddon PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_DIR}
 )
 set_target_properties(MyAddon2 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}          # Windows .dll
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}          # Linux .so
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL ${OUTPUT_DIR}
+)
+set_target_properties(MyAddon3 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}          # Windows .dll
     RUNTIME_OUTPUT_DIRECTORY_DEBUG ${OUTPUT_DIR}
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${OUTPUT_DIR}

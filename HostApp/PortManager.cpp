@@ -63,39 +63,45 @@ bool PortManager::Connect(const PortKey &provider, const PortKey &receiver) {
     auto &prov = pIt->second;
     auto &recv = rIt->second;
 
-    // validate directions, types, payload
+    // Validate basic properties
     std::string why;
     if (!Validate(prov.desc, recv.desc, why)) {
         std::cerr << "[PortManager] Connect failed: " << why << "\n";
         return false;
     }
+
     if (prov.desc.PayloadSize != recv.desc.PayloadSize ||
         prov.desc.TypeHash != recv.desc.TypeHash) {
         std::cerr << "[PortManager] Connect failed: payload mismatch\n";
         return false;
     }
 
-    // ---- DIRECT ports: share a single memory block ----
-    if (prov.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct &&
-        recv.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
+    // For now: require same access policy for buffered connections
+    if (prov.desc.AccessPolicy != recv.desc.AccessPolicy) {
+        std::cerr << "[PortManager] Connect failed: access policy mismatch "
+                  << "(Buffered<->Direct not yet supported)\n";
+        return false;
+    }
+
+    Connection conn;
+    conn.provider = provider;
+    conn.receiver = receiver;
+
+    if (prov.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
+        // DIRECT: shared memory
         if (!prov.transport) {
-            // allocate once on provider
             prov.transport = ::operator new(prov.desc.PayloadSize);
             std::memset(prov.transport, 0, prov.desc.PayloadSize);
         }
-
-        // both see the same memory
         recv.transport = prov.transport;
-
-        std::cout << "[PortManager] Direct connect: "
-                  << provider.addon << "::" << provider.port << " <-> "
-                  << receiver.addon << "::" << receiver.port
-                  << " at " << prov.transport << "\n";
+        // buffer unused for direct
+    } else {
+        // BUFFERED: allocate per-connection buffer
+        conn.buffer.resize(prov.desc.PayloadSize);
+        conn.hasData = false;
     }
 
-    // (Buffered case: here you would set up queue/route if you want.)
-
-    connections_.push_back({provider, receiver});
+    connections_.push_back(std::move(conn));
     return true;
 }
 
@@ -135,15 +141,13 @@ PluginAPI::PortHandle PortManager::OpenPort(const char *name) {
     auto &pi = it->second;
 
     if (pi.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
-        // DO NOT allocate here; Connect() is responsible
-        // If not connected, pi.transport may be null → directPtr_ stays null.
+        // Direct – transport set in Connect()
         return PluginAPI::PortHandle{pi.transport};
     }
 
-    // Buffered: host uses PortInfo* and routes via Read/Write
-    return PluginAPI::PortHandle{(void *)&pi};
+    // Buffered – use PortInfo* as handle.impl
+    return PluginAPI::PortHandle{&pi};
 }
-
 
 // Demo transport: each port gets a tiny byte buffer in PortInfo::transport.
 static std::vector<std::uint8_t> &BufferFor(PortManager::PortInfo &pi) {
@@ -152,30 +156,64 @@ static std::vector<std::uint8_t> &BufferFor(PortManager::PortInfo &pi) {
     return *static_cast<std::vector<std::uint8_t> *>(pi.transport);
 }
 
-bool PortManager::Read(PluginAPI::PortHandle h, void *dst, size_t bytes, size_t &outBytes) {
-    if (!h.impl) {
-        outBytes = 0;
+bool PortManager::Read(PluginAPI::PortHandle h,
+    void                                    *dst,
+    size_t                                   bytes,
+    size_t                                  &outBytes) {
+    outBytes = 0;
+    if (!h.impl)
         return false;
-    }
-    auto &pi  = *static_cast<PortInfo *>(h.impl);
-    auto &buf = BufferFor(pi);
 
-    outBytes = std::min(bytes, buf.size());
-    std::memcpy(dst, buf.data(), outBytes);
-    return true;
+    auto *pi = static_cast<PortInfo *>(h.impl);
+
+    if (pi->desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
+        return false; // Direct ports should use directPtr_, not Read()
+    }
+
+    // Find the connection where this port is the receiver
+    for (auto &conn : connections_) {
+        if (conn.receiver.addon == pi->key.addon &&
+            conn.receiver.port == pi->key.port) {
+            if (!conn.hasData)
+                return false; // nothing written yet
+
+            const size_t n = std::min(bytes, conn.buffer.size());
+            std::memcpy(dst, conn.buffer.data(), n);
+            outBytes = n;
+            return true;
+        }
+    }
+
+    return false; // no connection found
 }
 
 bool PortManager::Write(PluginAPI::PortHandle h, const void *src, size_t bytes, size_t &outBytes) {
-    if (!h.impl) {
-        outBytes = 0;
+    outBytes = 0;
+    if (!h.impl)
+        return false;
+
+    auto *pi = static_cast<PortInfo *>(h.impl);
+
+    // For Direct ports, AddOnPort::write might bypass this; for now,
+    // we assume only Buffered ports call Write().
+    if (pi->desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
         return false;
     }
-    auto &pi  = *static_cast<PortInfo *>(h.impl);
-    auto &buf = BufferFor(pi);
 
-    outBytes = std::min(bytes, buf.size());
-    std::memcpy(buf.data(), src, outBytes);
-    return true;
+    // Find all connections where this port is the provider
+    bool any = false;
+    for (auto &conn : connections_) {
+        if (conn.provider.addon == pi->key.addon &&
+            conn.provider.port == pi->key.port) {
+            const size_t n = std::min(bytes, conn.buffer.size());
+            std::memcpy(conn.buffer.data(), src, n);
+            conn.hasData = true;
+            outBytes     = n; // last value wins for outBytes
+            any          = true;
+        }
+    }
+
+    return any;
 }
 
 #if 0 // jsonv ersion
