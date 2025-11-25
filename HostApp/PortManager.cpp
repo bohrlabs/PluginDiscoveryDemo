@@ -1,4 +1,4 @@
-#include "PortManager.hpp"
+﻿#include "PortManager.hpp"
 
 using namespace PluginAPI;
 
@@ -57,35 +57,45 @@ bool PortManager::Validate(const PortDescriptor &prov,
 bool PortManager::Connect(const PortKey &provider, const PortKey &receiver) {
     auto pIt = ports_.find(provider);
     auto rIt = ports_.find(receiver);
-
-    if (pIt == ports_.end()) {
-        std::cerr << "[PortManager] Provider not found: "
-                  << provider.addon << "::" << provider.port << "\n";
+    if (pIt == ports_.end() || rIt == ports_.end())
         return false;
-    }
-    if (rIt == ports_.end()) {
-        std::cerr << "[PortManager] Receiver not found: "
-                  << receiver.addon << "::" << receiver.port << "\n";
-        return false;
-    }
 
+    auto &prov = pIt->second;
+    auto &recv = rIt->second;
+
+    // validate directions, types, payload
     std::string why;
-    if (!Validate(pIt->second.desc, rIt->second.desc, why)) {
-        std::cerr << "[PortManager] Connect failed (" << why << "): "
-                  << provider.addon << "::" << provider.port
-                  << " -> "
-                  << receiver.addon << "::" << receiver.port
-                  << "\n";
+    if (!Validate(prov.desc, recv.desc, why)) {
+        std::cerr << "[PortManager] Connect failed: " << why << "\n";
         return false;
     }
+    if (prov.desc.PayloadSize != recv.desc.PayloadSize ||
+        prov.desc.TypeHash != recv.desc.TypeHash) {
+        std::cerr << "[PortManager] Connect failed: payload mismatch\n";
+        return false;
+    }
+
+    // ---- DIRECT ports: share a single memory block ----
+    if (prov.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct &&
+        recv.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
+        if (!prov.transport) {
+            // allocate once on provider
+            prov.transport = ::operator new(prov.desc.PayloadSize);
+            std::memset(prov.transport, 0, prov.desc.PayloadSize);
+        }
+
+        // both see the same memory
+        recv.transport = prov.transport;
+
+        std::cout << "[PortManager] Direct connect: "
+                  << provider.addon << "::" << provider.port << " <-> "
+                  << receiver.addon << "::" << receiver.port
+                  << " at " << prov.transport << "\n";
+    }
+
+    // (Buffered case: here you would set up queue/route if you want.)
 
     connections_.push_back({provider, receiver});
-
-    std::cout << "[PortManager] Connected "
-              << provider.addon << "::" << provider.port
-              << " -> "
-              << receiver.addon << "::" << receiver.port
-              << "\n";
     return true;
 }
 
@@ -124,22 +134,16 @@ PluginAPI::PortHandle PortManager::OpenPort(const char *name) {
 
     auto &pi = it->second;
 
-    // ----- DIRECT PORT -----
     if (pi.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
-        // allocate memory *once*
-        if (pi.transport == nullptr) {
-            pi.transport = ::operator new(pi.desc.PayloadSize);
-            std::cout << "Memory alloc for " << pi.desc.Name << ", size: " << pi.desc.PayloadSize << std::endl;
-            std::memset(pi.transport, 0, pi.desc.PayloadSize);
-        }
-
-        // IMPORTANT: handle.impl must be the direct pointer
+        // DO NOT allocate here; Connect() is responsible
+        // If not connected, pi.transport may be null → directPtr_ stays null.
         return PluginAPI::PortHandle{pi.transport};
     }
 
-    // ----- BUFFERED PORT -----
+    // Buffered: host uses PortInfo* and routes via Read/Write
     return PluginAPI::PortHandle{(void *)&pi};
 }
+
 
 // Demo transport: each port gets a tiny byte buffer in PortInfo::transport.
 static std::vector<std::uint8_t> &BufferFor(PortManager::PortInfo &pi) {
@@ -333,7 +337,7 @@ bool PortManager::LoadFromFile(const std::string &filename) {
     }
 
     // consume rest of line after numbers
-    
+
     in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     ports_.clear();

@@ -16,9 +16,9 @@ void MyAddon::run() {
     p.speed = 3.14f * p.value;
 
     // direct write into SHM
-    //OutPort.data() = p;
-    OutPort.data().ptr()->value = tick++;
-    OutPort.data().ptr()->speed = 3.14f * p.value + tick;
+    OutPort.data() = p;
+    //OutPort.data().ptr()->value = tick++;
+    //OutPort.data().ptr()->speed = 3.14f * p.value + tick;
 
 
 
