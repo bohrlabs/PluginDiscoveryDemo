@@ -195,4 +195,4 @@ Place it in `/addons`.
 
 ## License
 
-MIT License (or update as needed).
+MIT License
