@@ -117,14 +117,28 @@ void PortManager::PrintConnections() const {
     }
 }
 PluginAPI::PortHandle PortManager::OpenPort(const char *name) {
-    // name is unique per-addon; we resolve using currentAddon_
     PortKey key{currentAddon_, name};
     auto    it = ports_.find(key);
     if (it == ports_.end())
         return {};
 
-    // impl points to PortInfo
-    return PluginAPI::PortHandle{(void *)&it->second};
+    auto &pi = it->second;
+
+    // ----- DIRECT PORT -----
+    if (pi.desc.AccessPolicy == PluginAPI::DataAccessPolicy::Direct) {
+        // allocate memory *once*
+        if (pi.transport == nullptr) {
+            pi.transport = ::operator new(pi.desc.PayloadSize);
+            std::cout << "Memory alloc for " << pi.desc.Name << ", size: " << pi.desc.PayloadSize << std::endl;
+            std::memset(pi.transport, 0, pi.desc.PayloadSize);
+        }
+
+        // IMPORTANT: handle.impl must be the direct pointer
+        return PluginAPI::PortHandle{pi.transport};
+    }
+
+    // ----- BUFFERED PORT -----
+    return PluginAPI::PortHandle{(void *)&pi};
 }
 
 // Demo transport: each port gets a tiny byte buffer in PortInfo::transport.
@@ -142,7 +156,7 @@ bool PortManager::Read(PluginAPI::PortHandle h, void *dst, size_t bytes, size_t 
     auto &pi  = *static_cast<PortInfo *>(h.impl);
     auto &buf = BufferFor(pi);
 
-    outBytes = min(bytes, buf.size());
+    outBytes = std::min(bytes, buf.size());
     std::memcpy(dst, buf.data(), outBytes);
     return true;
 }
@@ -155,7 +169,245 @@ bool PortManager::Write(PluginAPI::PortHandle h, const void *src, size_t bytes, 
     auto &pi  = *static_cast<PortInfo *>(h.impl);
     auto &buf = BufferFor(pi);
 
-    outBytes = min(bytes, buf.size());
+    outBytes = std::min(bytes, buf.size());
     std::memcpy(buf.data(), src, outBytes);
     return true;
 }
+
+#if 0 // jsonv ersion
+
+// Project functions
+    #include <fstream>
+    #include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
+bool PortManager::SaveToFile(const std::string &filename) const {
+    json j;
+
+    // Ports
+    for (const auto &[key, info] : ports_) {
+        const auto &d = info.desc;
+
+        j["ports"].push_back({{"addon", key.addon},
+            {"port", key.port},
+            {"direction", to_string(d.Direction)},
+            {"type", to_string(d.Type)},
+            {"policy", to_string(d.AccessPolicy)},
+            {"payload_size", d.PayloadSize},
+            {"payload_hash", d.TypeHash}});
+    }
+
+    // Connections
+    for (const auto &c : connections_) {
+        j["connections"].push_back({{"provider_addon", c.provider.addon},
+            {"provider_port", c.provider.port},
+            {"receiver_addon", c.receiver.addon},
+            {"receiver_port", c.receiver.port}});
+    }
+
+    std::ofstream f(filename);
+    if (!f)
+        return false;
+
+    f << j.dump(4);
+    return true;
+}
+
+bool PortManager::LoadFromFile(const std::string &filename) {
+    std::ifstream f(filename);
+    if (!f)
+        return false;
+
+    json j;
+    f >> j;
+
+    ports_.clear();
+    connections_.clear();
+
+    // Load ports
+    for (const auto &entry : j["ports"]) {
+        PortKey key{
+            entry["addon"].get<std::string>(),
+            entry["port"].get<std::string>()};
+
+        PortDescriptor desc;
+        desc.Name         = entry["port"];
+        desc.Direction    = (entry["direction"] == "Input")
+                                ? PortDirection::Input
+                                : PortDirection::Output;
+        desc.Type         = (entry["type"] == "SharedMemory")
+                                ? PortType::SharedMemory
+                                : (entry["type"] == "Function"
+                                          ? PortType::Function
+                                          : PortType::Socket);
+        desc.AccessPolicy = (entry["policy"] == "Direct")
+                                ? DataAccessPolicy::Direct
+                                : DataAccessPolicy::Buffered;
+        desc.PayloadSize  = entry["payload_size"];
+        desc.TypeHash     = entry["payload_hash"];
+
+        PortInfo info;
+        info.key       = key;
+        info.desc      = desc;
+        info.transport = nullptr; // re-created later on connect
+
+        ports_.emplace(key, info);
+    }
+
+    // Load connections
+    for (const auto &entry : j["connections"]) {
+        PortKey prov{entry["provider_addon"], entry["provider_port"]};
+        PortKey recv{entry["receiver_addon"], entry["receiver_port"]};
+        connections_.push_back({prov, recv});
+    }
+
+    return true;
+}
+#else
+    #include <fstream>
+    #include <limits>
+
+bool PortManager::SaveToFile(const std::string &filename) const {
+    std::ofstream out(filename, std::ios::out | std::ios::trunc);
+    if (!out) {
+        std::cerr << "[PortManager] Failed to open file for writing: "
+                  << filename << "\n";
+        return false;
+    }
+
+    // Magic + version
+    out << "PMv1\n";
+
+    // Counts
+    out << ports_.size() << " " << connections_.size() << "\n";
+
+    // Ports
+    for (const auto &[key, info] : ports_) {
+        const auto &d = info.desc;
+
+        out << key.addon << "\n";
+        out << key.port << "\n";
+
+        // cast enums to integer
+        out << static_cast<int>(d.Direction) << " "
+            << static_cast<int>(d.Type) << " "
+            << static_cast<int>(d.AccessPolicy) << " "
+            << d.PayloadSize << " "
+            << d.TypeHash << "\n";
+    }
+
+    // Connections
+    for (const auto &c : connections_) {
+        out << c.provider.addon << "\n";
+        out << c.provider.port << "\n";
+        out << c.receiver.addon << "\n";
+        out << c.receiver.port << "\n";
+    }
+
+    return true;
+}
+bool PortManager::LoadFromFile(const std::string &filename) {
+    std::ifstream in(filename);
+    if (!in) {
+        std::cerr << "[PortManager] Failed to open file for reading: "
+                  << filename << "\n";
+        return false;
+    }
+
+    std::string magic;
+    if (!std::getline(in, magic)) {
+        std::cerr << "[PortManager] Failed to read magic from file\n";
+        return false;
+    }
+    if (magic != "PMv1") {
+        std::cerr << "[PortManager] Unsupported file format: " << magic << "\n";
+        return false;
+    }
+
+    std::size_t numPorts = 0;
+    std::size_t numConns = 0;
+    if (!(in >> numPorts >> numConns)) {
+        std::cerr << "[PortManager] Failed to read counts\n";
+        return false;
+    }
+
+    // consume rest of line after numbers
+    
+    in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    ports_.clear();
+    connections_.clear();
+
+    // ---- Load ports ----
+    for (std::size_t i = 0; i < numPorts; ++i) {
+        PortKey key;
+        if (!std::getline(in, key.addon)) {
+            std::cerr << "[PortManager] Failed to read addon name for port "
+                      << i << "\n";
+            return false;
+        }
+        if (!std::getline(in, key.port)) {
+            std::cerr << "[PortManager] Failed to read port name for port "
+                      << i << "\n";
+            return false;
+        }
+
+        int           dirInt = 0, typeInt = 0, polInt = 0;
+        std::size_t   payloadSize = 0;
+        std::uint64_t typeHash    = 0;
+
+        if (!(in >> dirInt >> typeInt >> polInt >> payloadSize >> typeHash)) {
+            std::cerr << "[PortManager] Failed to read descriptor fields for port "
+                      << key.addon << "::" << key.port << "\n";
+            return false;
+        }
+        in.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+        PluginAPI::PortDescriptor desc;
+        desc.Name         = key.port;
+        desc.Direction    = static_cast<PluginAPI::PortDirection>(dirInt);
+        desc.Type         = static_cast<PluginAPI::PortType>(typeInt);
+        desc.AccessPolicy = static_cast<PluginAPI::DataAccessPolicy>(polInt);
+        desc.PayloadSize  = payloadSize;
+        desc.TypeHash     = typeHash;
+
+        PortInfo info;
+        info.key       = key;
+        info.desc      = desc;
+        info.transport = nullptr; // will be recreated on Connect/OpenPort
+
+        ports_.emplace(key, std::move(info));
+    }
+
+    // ---- Load connections ----
+    for (std::size_t i = 0; i < numConns; ++i) {
+        Connection c;
+        if (!std::getline(in, c.provider.addon)) {
+            std::cerr << "[PortManager] Failed to read provider addon for connection "
+                      << i << "\n";
+            return false;
+        }
+        if (!std::getline(in, c.provider.port)) {
+            std::cerr << "[PortManager] Failed to read provider port for connection "
+                      << i << "\n";
+            return false;
+        }
+        if (!std::getline(in, c.receiver.addon)) {
+            std::cerr << "[PortManager] Failed to read receiver addon for connection "
+                      << i << "\n";
+            return false;
+        }
+        if (!std::getline(in, c.receiver.port)) {
+            std::cerr << "[PortManager] Failed to read receiver port for connection "
+                      << i << "\n";
+            return false;
+        }
+
+        connections_.push_back(std::move(c));
+    }
+
+    return true;
+}
+
+#endif

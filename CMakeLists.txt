@@ -10,7 +10,7 @@ target_include_directories(MyAddon PRIVATE include)
 set_target_properties(MyAddon PROPERTIES OUTPUT_NAME "MyAddon")
 
 # Build plugin/shared lib
-add_library(MyAddon2 SHARED MyAddon2/MyAddon.cpp)
+add_library(MyAddon2 SHARED MyAddon2/MyAddon2.cpp)
 target_include_directories(MyAddon2 PRIVATE include)
 set_target_properties(MyAddon2 PROPERTIES OUTPUT_NAME "MyAddon2")
 
@@ -32,6 +32,8 @@ endif()
 
 # Put both targets into the same bin folder
 set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
+
+target_compile_definitions(HostApp PRIVATE NOMINMAX)
 
 set_target_properties(HostApp PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}

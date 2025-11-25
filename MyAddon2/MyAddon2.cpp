@@ -1,4 +1,4 @@
-#include "MyAddon.hpp"
+#include "MyAddon2.hpp"
 #include <iostream>
 
 std::vector<PluginAPI::PortDescriptor> MyAddon2::getPortDescriptors() const {
@@ -8,6 +8,7 @@ std::vector<PluginAPI::PortDescriptor> MyAddon2::getPortDescriptors() const {
 void MyAddon2::initialize(PluginAPI::IHostServices *svc) {
     InPort.Bind(svc);
     OutPort.Bind(svc);
+    
 }
 
 void MyAddon2::run() {
@@ -22,7 +23,7 @@ void MyAddon2::run() {
         p.speed *= 0.5f;
 
         // write processed
-        OutPort.write(p);
+        //OutPort.write(p);
 
         std::cout << "[MyAddon2] Sent Processed: value=" << p.value
                   << " speed=" << p.speed << "\n";
@@ -31,7 +32,7 @@ void MyAddon2::run() {
     }
 }
 
-void MyAddon2::shutdown() {
+void MyAddon2::shutdown() { 
     std::cout << "[MyAddon2] shutdown\n";
 }
 

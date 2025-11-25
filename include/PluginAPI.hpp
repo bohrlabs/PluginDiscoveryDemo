@@ -101,7 +101,6 @@ namespace PluginAPI {
 #endif
     }
 
-
     // ================================================================
     // Host→Plugin service interface
     // (Binding, read/write, transport abstraction)
@@ -214,8 +213,13 @@ namespace PluginAPI {
 
             // -------- Binding from host --------
             void Bind(IHostServices *svc) {
-                svc_    = svc;
-                handle_ = svc ? svc->OpenPort(name.c_str()) : PortHandle{};
+                svc_ = svc;
+                if (svc) {
+                    handle_ = svc->OpenPort(name.c_str());
+                } else {
+                    handle_ = PortHandle{};
+                }
+                //handle_ = svc ? svc->OpenPort(name.c_str()) : PortHandle{};
 
                 if (accessPolicy == DataAccessPolicy::Direct &&
                     handle_.impl != nullptr) {

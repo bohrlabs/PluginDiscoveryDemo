@@ -9,14 +9,14 @@ class MyAddon2: public PluginAPI::IPlugin {
             "InPacket",
             PluginAPI::PortDirection::Input,
             PluginAPI::PortType::SharedMemory,
-            PluginAPI::DataAccessPolicy::Buffered>;
+            PluginAPI::DataAccessPolicy::Direct>;
 
         using OutPortT = PluginAPI::AddOnPort<
             Packet,
             "ProcessedPacket",
             PluginAPI::PortDirection::Output,
             PluginAPI::PortType::SharedMemory,
-            PluginAPI::DataAccessPolicy::Buffered>;
+            PluginAPI::DataAccessPolicy::Direct>;
 
         std::vector<PluginAPI::PortDescriptor> getPortDescriptors() const override;
         void                                   initialize(PluginAPI::IHostServices *svc) override;
@@ -26,4 +26,5 @@ class MyAddon2: public PluginAPI::IPlugin {
     private:
         InPortT  InPort{};
         OutPortT OutPort{};
+        Packet   myStuff;
 };

@@ -7,6 +7,7 @@ std::vector<PluginAPI::PortDescriptor> MyAddon::getPortDescriptors() const {
 
 void MyAddon::initialize(PluginAPI::IHostServices *svc) {
     OutPort.Bind(svc);
+    
 }
 
 void MyAddon::run() {
@@ -15,7 +16,11 @@ void MyAddon::run() {
     p.speed = 3.14f * p.value;
 
     // direct write into SHM
-    OutPort.data() = p;
+    //OutPort.data() = p;
+    OutPort.data().ptr()->value = tick++;
+    OutPort.data().ptr()->speed = 3.14f * p.value + tick;
+
+
 
     std::cout << "[MyAddon] Produced Packet: value=" << p.value
               << " speed=" << p.speed << "\n";

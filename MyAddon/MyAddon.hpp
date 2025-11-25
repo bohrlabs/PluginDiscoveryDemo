@@ -18,5 +18,6 @@ class MyAddon: public PluginAPI::IPlugin {
 
     private:
         OutPortT OutPort{};
+        Packet   myValue;
         int      tick =11;
 };

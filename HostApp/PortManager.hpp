@@ -53,11 +53,16 @@ class PortManager: public IHostPortServices, public PluginAPI::IHostServices {
         }
 
         void PrintPorts() const;
-        void PrintConnections() const;
+        void PrintConnections() const; 
 
         PluginAPI::PortHandle OpenPort(const char *name) override;
         bool                  Read(PluginAPI::PortHandle h, void *dst, size_t bytes, size_t &outBytes) override;
         bool                  Write(PluginAPI::PortHandle h, const void *src, size_t bytes, size_t &outBytes) override;
+
+
+        // Project functionalities
+        bool                  SaveToFile(const std::string &filename) const;
+        bool                  LoadFromFile(const std::string &filename);
 
     private:
         static bool Validate(const PluginAPI::PortDescriptor &prov,

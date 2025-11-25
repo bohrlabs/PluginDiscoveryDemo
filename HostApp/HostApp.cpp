@@ -24,9 +24,9 @@ int main() {
     portMgr.Connect("MyAddon", "OutPacket",
         "MyAddon2", "InPacket");
 
-    
-        mgr.runAll(portMgr);
-    
+    portMgr.PrintConnections();
+    mgr.runAll(portMgr);
+
     mgr.unloadAll();
 
     std::cout << "[HostApp] Done\n";

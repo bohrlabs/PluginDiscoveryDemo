@@ -117,19 +117,35 @@ void AddOnManager::discoverPortsForAll(IHostPortServices &svc) {
 }
 
 void AddOnManager::runAll(PluginAPI::IHostServices &services) {
+    // Try to get the PortManager interface that has BeginAddon()
+    auto *pm = dynamic_cast<IHostPortServices *>(&services);
+
+    // Initialize all addons and bind ports
     for (auto &a : addons_) {
-        std::cout << "[AddOnManager] Initialize " << a.path.filename().string() << "\n";
-        a.plugin->initialize(&services);
+        const std::string addonName = a.path.stem().string(); // "MyAddonProducer", etc.
+
+        std::cout << "[AddOnManager] Initialize " << addonName << "\n";
+
+        if (pm) {
+            pm->BeginAddon(addonName); // important: sets currentAddon_ for OpenPort()
+        }
+
+        a.plugin->initialize(&services); // InPort.Bind/OutPort.Bind happens here
     }
-    std::cout << "[AddOnManager] Run all " << "\n";
-    for (int i = 0; i < 10; i++) {
+
+    std::cout << "[AddOnManager] Run all\n";
+
+    // Simple demo loop: run 10 cycles
+    for (int i = 0; i < 10; ++i) {
         for (auto &a : addons_) {
             a.plugin->run();
         }
     }
 
+    // Shutdown
     for (auto &a : addons_) {
-        std::cout << "[AddOnManager] Shutdown " << a.path.filename().string() << "\n";
+        const std::string addonName = a.path.stem().string();
+        std::cout << "[AddOnManager] Shutdown " << addonName << "\n";
         a.plugin->shutdown();
     }
 }
